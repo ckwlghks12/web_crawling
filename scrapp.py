@@ -5,12 +5,12 @@ import csv
 import re
 import requests
 import time
-
+from selenium.common.exceptions import NoSuchElementException
 
 csv_filename_to_write = "unpareview.csv"
 csv_open = open(csv_filename_to_write, 'w+',encoding='utf-8')
 csv_writer = csv.writer(csv_open)
-csv_writer.writerow( ('top_img','brand','productname','rating','body','like_count','upload_at','views','comment','comment_picture',"파워리뷰","com_count","com_date","comment_rating","urlss","ruser","rusername","ruserskin_type","ruserskin_tone","rucount"))
+csv_writer.writerow( ('top_img','brand','productname','rating','body','like_count','upload_at','views','comment','comment_picture',"파워리뷰","com_count","com_date","comment_rating","urlss","ruser","rusername","ruserskin_type","ruserskin_tone","rucount",'usercard','introduction'))
 
 url1 = "https://www.unpa.me/review"
 # url1 = "https://www.unpa.me/review/detail/76180522-9d10-4584-8762-9e68d2e47d7d"
@@ -21,7 +21,7 @@ driver.implicitly_wait(3)
 html = driver.page_source
 bs = BeautifulSoup(html,'html.parser')
 
-for i in range(0,0):
+for i in range(0,2):
     driver.find_element_by_class_name('unpa-load-more-button').click()   # 더보기 클릭
     time.sleep(1)
     
@@ -67,24 +67,32 @@ for product_id in product_ids:
     bview = bot_view.text # 여기까지 본문 밑에 조회수까지
     
     # # 여기서부터 작성자 다른 파워리뷰
-    commen = driver.find_elements_by_class_name("other-feeds")
-    other = driver.find_element_by_class_name('other-feeds')
-    count = other.find_elements_by_class_name('horizontal-count-info')
-    compro = bs.findAll('div',class_="user-profile-image")
+    com = []
+    try:
+        commen = driver.find_elements_by_class_name("other-feeds")
+        other = driver.find_element_by_class_name('other-feeds')
+        count = other.find_elements_by_class_name('horizontal-count-info')
+        compro = bs.findAll('div',class_="user-profile-image")
+    except NoSuchElementException:
+        other = "None"
     
     if int(driver.find_element_by_class_name('comment-count-title-count').text) > 0:
-        comment = driver.find_elements_by_class_name('unpa-comments')
+        comment = driver.find_element_by_class_name('unpa-comments')
+        commentt = comment.find_elements_by_class_name('content')
         pic = driver.find_element_by_class_name('unpa-comments')
         commentpic = pic.find_elements_by_class_name('user-profile-image')
-        for i in comment:
-            com = i.text.split('\n')
+        for i in commentt:
+            # com.append([i.find_element_by_class_name('user-name').text,i.find_element_by_class_name('time').text,i.find_element_by_class_name('count').text,i.find_element_by_class_name('text').text])
+            try:
+                com.append([i.find_element_by_class_name('user-name').text,i.find_element_by_class_name('time').text,i.find_element_by_class_name('count').text,i.find_element_by_class_name('text').text,i.find_element_by_class_name('emoticon').find_element_by_tag_name('img').get_attribute('src')])
+            except :
+                com.append([i.find_element_by_class_name('user-name').text,i.find_element_by_class_name('time').text,i.find_element_by_class_name('count').text,i.find_element_by_class_name('text').text])
         for i in commentpic:
             compic = i.get_attribute('style')
         # for i in com:
         #     if i == '답글달기':
         #         del com[i]
     else :
-        com = []
         compic = []
     
     comra = []
@@ -93,11 +101,16 @@ for product_id in product_ids:
     counts = []     
     redate = []
     if len(commen) > 0:
+        # commen = driver.find_elements_by_class_name("other-feeds")
+        # other = driver.find_element_by_class_name('other-feeds')
+        # count = other.find_elements_by_class_name('horizontal-count-info')
+    # try:
         otherfeed = bs.find('div',class_= "other-feeds").findAll('div',class_='image')
         for i in commen: 
             bowl = i.find_elements_by_class_name('body')
             comenrating = i.find_elements_by_class_name('rating-value')
         for i in bowl:
+            
             combody.append(i.text.split('\n'))
         for i in comenrating:
             comra.append(i.text)
@@ -109,11 +122,14 @@ for product_id in product_ids:
             redate.append(i.find_element_by_class_name('pull-right').text)
             for e in i.find_elements_by_class_name('count'):
                 counts.append(e.text)
+    # except NoSuchElementException:
+        
             
     uprourl = bs.find('div',class_='user-image').get('style') # 오른쪽 유저 프로필사진
     if uprourl.find('default') == -1 :
         ruser = uprourl[uprourl.index('http'):uprourl.rindex('\'')] # 오른쪽 유저 프로필사진
-            
+    else:
+        ruser = 'default'
 
     userskin = bs.find('div',class_='user-skin-info').findAll('div') # 오른쪽 유저 피부정보
     usercount = bs.find('div',class_="user-count-info").findAll('div') # 오른쪽 유저 팔로워 등등 숫자
@@ -132,8 +148,16 @@ for product_id in product_ids:
     for i in usercount: # 오른쪽 유저 카운트
         rucount.append(i.text)
         
+    userca = driver.find_element_by_class_name('image').get_attribute('style')
+    usercard = userca[userca.index('http'):userca.rindex('\"')]
+    
+    try:
+        selfintro = driver.find_element_by_class_name('unpa-gray').text
+    except:
+        selfintro = driver.find_element_by_class_name('description').text
+    
     time.sleep(2)
-    csv_writer.writerow ((topimg,brand,productname,rating,bodycon,like_count,btime,bview,com,compic,combody,counts,redate,comra,urlss,ruser,rusername,ruserskin_type,ruserskin_tone,rucount))
+    csv_writer.writerow ((topimg,brand,productname,rating,bodycon,like_count,btime,bview,com,compic,combody,counts,redate,comra,urlss,ruser,rusername,ruserskin_type,ruserskin_tone,rucount,usercard,selfintro))
         
         
 csv_open.close()
